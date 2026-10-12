@@ -13,7 +13,7 @@ No PowerShell, no files on the endpoint besides the tasks themselves.
 | Task | Trigger | Filter |
 |---|---|---|
 | `W365-LogoffOnSxWake` | Power-Troubleshooter **1** + Kernel-Power **107** | None — an Sx (S3/hibernate) resume is always a genuine return |
-| `W365-LogoffOnStandbyWake` | Kernel-Power **507** (exiting Modern Standby) | In the trigger query itself: Reason is **Lid or Power Button** AND standby lasted **> 120 s** |
+| `W365-LogoffOnStandbyWake` | Kernel-Power **507** (exiting Modern Standby) | In the trigger query itself: Reason is **Lid (15), Power Button (1), Input Keyboard (31), Input Touchpad (33), or User Input (4)** AND standby lasted **> 120 s** (v2, Oct 12 2026 — v1 allowed Lid / Power Button only) |
 
 ## Why the 507 filter can live in the query
 
@@ -26,15 +26,18 @@ Two facts from the pilot device's own logs (Oct 9, 2026):
    microseconds, measured by the OS and stamped on the exit event. So the
    "standby floor" is also a query clause: `DurationInUs > 120000000`.
 
-## The 507 subscription query (as shipped)
+## The 507 subscription query (as shipped, v2 — Oct 12 2026)
 
 ```xml
 <QueryList>
   <Query Id="0" Path="System">
-    <Select Path="System">*[System[Provider[@Name='Microsoft-Windows-Kernel-Power'] and (EventID=507)] and EventData[(Data[@Name='Reason']=15 or Data[@Name='Reason']=1) and Data[@Name='DurationInUs']&gt;120000000]]</Select>
+    <Select Path="System">*[System[Provider[@Name='Microsoft-Windows-Kernel-Power'] and (EventID=507)] and EventData[(Data[@Name='Reason']=15 or Data[@Name='Reason']=1 or Data[@Name='Reason']=31 or Data[@Name='Reason']=33 or Data[@Name='Reason']=4) and Data[@Name='DurationInUs']&gt;120000000]]</Select>
   </Query>
 </QueryList>
 ```
+
+(The v1 query allowed only Reason 15 / 1. Input codes 31 / 33 / 4 were added in
+v2 after pilot testing — see Pilot results below.)
 
 **Floor conversions** (DurationInUs is microseconds): 60 s = `60000000` ·
 120 s = `120000000` · 300 s = `300000000`. Edit the number in the task XML to retune.
@@ -58,15 +61,16 @@ Two facts from the pilot device's own logs (Oct 9, 2026):
    hibernate (handled by the Sx task) and most lid cycles were 11–36 s relocations
    (correctly excluded). Small is expected; *wrong reasons in the result* is not.
 4. **Import test.** `schtasks /create /tn "W365-LogoffOnStandbyWake" /xml W365-LogoffOnStandbyWake.xml /f`
-   — if Task Scheduler rejects the query (the numeric `>` comparison on EventData is
-   the one untested assumption), import `W365-LogoffOnStandbyWake-NOFLOOR.xml`
-   instead and tell Gemma; the floor then needs the v1 script or a different trick.
+   — if Task Scheduler rejects the query (the numeric `>` comparison on EventData),
+   import `W365-LogoffOnStandbyWake-V2-NOFLOOR.xml` instead and tell Gemma; the
+   floor then needs the v1 script or a different trick. (On Bruce's pilot build,
+   Oct 12 2026, the comparison was accepted and the floored task fired correctly.)
 
 ## Import / remove (deployment is two commands; nothing else lands on the box)
 
 ```bat
 schtasks /create /tn "W365-LogoffOnSxWake"        /xml W365-LogoffOnSxWake.xml        /f
-schtasks /create /tn "W365-LogoffOnStandbyWake"   /xml W365-LogoffOnStandbyWake.xml   /f
+schtasks /create /tn "W365-LogoffOnStandbyWake"   /xml W365-LogoffOnStandbyWake-V2.xml   /f
 
 schtasks /delete /tn "W365-LogoffOnSxWake"      /f
 schtasks /delete /tn "W365-LogoffOnStandbyWake" /f
@@ -79,7 +83,7 @@ schtasks /delete /tn "W365-LogoffOnStandbyWake" /f
 | Lid closed 10 s, reopen | **No logoff** — under the floor |
 | Lid closed 5 min, reopen | Logoff → Windows logon → auth → SSO to Cloud PC |
 | Power-button sleep 5 min, wake | Logoff |
-| Idle timeout, then touchpad/keyboard wake | No logoff — reason not in allowlist |
+| Idle timeout > 120 s, then touchpad/keyboard wake | Logoff (v2 — input reasons in allowlist; the floor still applies, so short input cycles don't fire) |
 | Long standby → machine hibernates → lid open | Logoff via the Sx task (107 / PT1) |
 | Plug/unplug AC flapping (AC/DC burst 507s) | No logoff |
 | Cold boot | Untouched — single sign-in, SSO flows as before |
@@ -96,3 +100,40 @@ fresh logon screen.
 pilot it's still unproven whether LocalSessionManager 24/25 even fire for Cloud PC
 disconnects. If they do and you want that path, it's the v1 scripts — everything
 else stays script-free.
+
+## Pilot results — Oct 12, 2026 (Bruce's thin client, verified live)
+
+`Verify-PilotEvents.ps1` run against the pilot's 300 most recent 507 events.
+**DurationInUs was present on 300/300** and Task Scheduler accepted the `>`
+comparison on EventData — the build's two open assumptions are both confirmed.
+
+Verified 507 reason codes on this build (count of 300):
+
+| Code | Rendered text | Count |
+|---|---|---|
+| 33 | Input Touchpad | 124 |
+| 15 | Lid | 83 |
+| 31 | Input Keyboard | 40 |
+| 20 | Sleep, Hibernate, or Shutdown | 9 |
+| 4 | User Input | 8 |
+| 1 | Power Button | 8 |
+| 28 | AC/DC Display Burst Suppressed | 7 |
+| 53 | *(unrendered)* | 6 |
+| 25 | Resume from Hibernate | 6 |
+| 55 | Austerity Battery Drain Budget Exceeded | 5 |
+| 5 | AC/DC Display Burst | 4 |
+
+Live test outcomes:
+
+- **Lid closed 120 s (battery) → logoff on wake.** ✓ (A 184 s Lid exit is in the log.)
+- **Power-button wake after ≥120 s standby → logoff.** ✓
+- **Key-press wake under v1 → no logoff.** The event: Oct 12 2026 12:06 PM,
+  Reason 31, 480 s standby. A genuine return path v1 missed → v2 adds 31/33/4.
+  Today's other input exits ran 1.6–37.1 s, so the floor absorbs the noise.
+- **Lid closed while plugged in → nothing.** The pilot's AC lid action is
+  "Do nothing": the device stays awake, no 506/507 fires, nothing to trigger on.
+  A power-policy setting, not a task gap (docked clamshell use wants this).
+- **Code 28 (AC/DC Display Burst Suppressed) exited a 78,281 s (~21.7 h)
+  standby** — correctly excluded from the allowlist; long duration alone does
+  not mean a human returned.
+- A 65.5 s Lid exit stayed correctly under the floor (no logoff).

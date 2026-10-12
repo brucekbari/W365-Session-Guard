@@ -33,7 +33,13 @@ Oct 9 2026: faster, unstallable, and indifferent to which user is signed in):
 
 - `W365-LogoffOnSxWake` — PT1 + 107, no filter (an Sx resume is always a real return).
 - `W365-LogoffOnStandbyWake` — 507 with the query doing all the work:
-  Reason ∈ {Lid (15), Power Button (1)} **and** `DurationInUs > 120000000` (120 s).
+  Reason allowlist **and** `DurationInUs > 120000000` (120 s floor).
+  **Current version: `-V2` (Oct 12, 2026)** — Reason ∈ {Lid (15), Power Button (1),
+  Input Keyboard (31), Input Touchpad (33), User Input (4)}. Input reasons were
+  added after pilot testing showed a keyboard wake after a long standby was the
+  one real return path v1 missed; the floor keeps the constant short input
+  cycles (1–37 s in the pilot logs) from firing it. The Oct 9 v1 file
+  (Lid / Power Button only) is retained for reference.
 
 Full rationale, the raw query, a 10-minute verification protocol (reason codes and
 `DurationInUs` are build-specific and must be confirmed on the pilot), and a fallback
@@ -105,6 +111,8 @@ script-free/                ⭐ v2 (recommended): zero scripts at runtime
   W365-LogoffOnSxWake.xml          PT1 + 107 -> rwinsta.exe console (as SYSTEM)
   W365-LogoffOnStandbyWake.xml     507, query-filtered (reason + DurationInUs floor) -> rwinsta.exe console
   W365-LogoffOnStandbyWake-NOFLOOR.xml  fallback if the build rejects the floor comparison
+  W365-LogoffOnStandbyWake-V2.xml  ⭐ current (Oct 12 2026): allowlist adds Input Keyboard/Touchpad/User Input
+  W365-LogoffOnStandbyWake-V2-NOFLOOR.xml  v2 fallback without the floor
   Verify-PilotEvents.ps1           one-time diagnostic (NOT deployed)
   VERIFY.md                        rationale, raw query, verification protocol
 scripts/
@@ -169,7 +177,13 @@ remote action / custom metric on logoff counts.
 - Tasks use `IgnoreNew` for multiple instances and a 2-minute execution limit, so a
   wedged run can't stack up or wedge the next wake.
 
-*Prepared Oct 8, 2026; v2 script-free build added Oct 9, 2026 from pilot-device
-event-log evidence. Untested on Bruce's hardware — the test matrices are the test.
-Event IDs, reason codes, and the DurationInUs floor should be confirmed on one
-pilot IoT device before any wider rollout.*
+*Prepared Oct 8, 2026; script-free build added Oct 9, 2026 from pilot-device
+event-log evidence. Pilot-tested on Bruce's thin client Oct 12, 2026: StandbyWake
+verified live (lid closed ≥120 s and power-button wakes log off on wake; the 507
+reason codes and DurationInUs confirmed against a 300-event sample — full table
+in `script-free/VERIFY.md`); keyboard-wake gap found under v1 and closed in the
+StandbyWake V2 files. Still to run on the pilot: the SxWake hibernate-resume
+path and the quick-flap negative test. Note: on the pilot, closing the lid while
+plugged in does nothing (AC lid action = Do nothing), so no standby events fire
+in that state at all. Confirm behaviour on one pilot IoT device before any wider
+rollout.*
