@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>W365 thin client IDLE LOGOFF (SCRIPT-FREE, Oct 13 2026): log off the local IoT session after the device sits untouched for 60 minutes - the awake-but-abandoned case the event triggers cannot see. SINGLE IdleTrigger; its duration is carried in Settings/IdleSettings (Duration PT1H, WaitTimeout PT1H). This is a SEPARATE task from W365-Logoff-YOLO-AllTriggers on purpose: IdleSettings is global to a task, so putting the 60-minute Duration on the event task would gate its wake/disconnect triggers behind a 60-minute idle condition as well. StopOnIdleEnd stays false (the rwinsta action is instant; a returning user mid-action is not a concern). Runs as LOCAL SYSTEM, same as the rest of the package.</Description>
+    <URI>\W365-LogoffOnIdle</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <IdleTrigger>
+      <Enabled>true</Enabled>
+    </IdleTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <Duration>PT1H</Duration>
+      <WaitTimeout>PT1H</WaitTimeout>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT2M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Windows\System32\rwinsta.exe</Command>
+      <Arguments>console</Arguments>
+    </Exec>
+  </Actions>
+</Task>
