@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>W365 thin client YOLO (SCRIPT-FREE, Oct 13 2026): ONE task, SIX event triggers, all firing rwinsta.exe console. PRINCIPAL (per Bruce, Oct 13): BUILTIN\Users group with LogonType InteractiveToken - "run only when a user is logged on"; the task cannot fire at a logged-off logon screen. Trade: the action now runs with the logged-on user's token instead of LOCAL SYSTEM, so rwinsta-as-user is the unproven bit - if the action errors in pilot, revert the principal to S-1-5-18. Triggers: Power-Troubleshooter 1 (wake), Kernel-Power 107 (Sx resume), Kernel-Power 507 exit with Reason Lid(15)/Power Button(1)/Battery Drain Budget Exceeded(55) and NO duration floor, ClientActiveXCore 1026 (RDP disconnected, Operational log), ClientActiveXCore 1019 UNFILTERED (Analytic log - its payload is a single TraceMessage string, so it cannot be narrowed by XPath; ANY client error fires this), and ClientActiveXCore 1003 filtered to the disconnect-reason trace point Value=4616 / 0x1208 'PC went to sleep' (Analytic log). OPEN GATES: (1) Task Scheduler may refuse the two Analytic-channel subscriptions at import - that refusal is itself a result; if import fails, remove the 1019/1003 triggers and re-import. (2) The unfiltered 1019 is the prune candidate if it false-fires; 1003-filtered does its job precisely. Built at Bruce's direction Oct 13, 2026.</Description>
+    <Description>W365 thin client YOLO v2 (SCRIPT-FREE, Oct 13 2026): ONE task, FOUR event triggers, all firing rwinsta.exe console as LOCAL SYSTEM (S-1-5-18). Triggers: Power-Troubleshooter 1 (wake), Kernel-Power 107 (Sx resume), Kernel-Power 507 exit with Reason Lid(15)/Power Button(1)/Battery Drain Budget Exceeded(55) and NO duration floor, ClientActiveXCore 1026 (RDP disconnected, Operational log). HISTORY: the original six-trigger build added two Analytic-channel triggers (1019 unfiltered; 1003 filtered to disconnect-reason Value 4616) and a BUILTIN Users InteractiveToken principal; Task Scheduler rejected registration with 'The request is not supported' on Oct 13, 2026 - consistent with event subscriptions being unsupported on Analytic channels. The Analytic triggers were removed and the principal reverted to LOCAL SYSTEM at Bruce's direction. Probe: import W365-LogoffOnAnalytic1019-TEST.xml standalone; if it throws the same error, the Analytic channel is convicted.</Description>
     <URI>\W365-Logoff-YOLO-AllTriggers</URI>
   </RegistrationInfo>
   <Triggers>
@@ -25,21 +25,10 @@
       <Enabled>true</Enabled>
       <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="Microsoft-Windows-TerminalServices-RDPClient/Operational"&gt;&lt;Select Path="Microsoft-Windows-TerminalServices-RDPClient/Operational"&gt;*[System[Provider[@Name='Microsoft-Windows-TerminalServices-ClientActiveXCore'] and (EventID=1026)]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
     </EventTrigger>
-    <!-- ClientActiveXCore Event 1019 UNFILTERED (Analytic log) - payload is one TraceMessage string; cannot be narrowed to sleep disconnects by XPath -->
-    <EventTrigger>
-      <Enabled>true</Enabled>
-      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;&lt;Select Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;*[System[(EventID=1019)]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
-    </EventTrigger>
-    <!-- ClientActiveXCore Event 1003 filtered (Analytic log): disconnect-reason trace point, Value=4616 (0x1208, PC went to sleep) -->
-    <EventTrigger>
-      <Enabled>true</Enabled>
-      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;&lt;Select Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;*[System[(EventID=1003)] and EventData[Data[@Name='Name']='Disconnect Reason' and Data[@Name='Value']='4616']]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
-    </EventTrigger>
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <GroupId>S-1-5-32-545</GroupId>
-      <LogonType>InteractiveToken</LogonType>
+      <UserId>S-1-5-18</UserId>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
