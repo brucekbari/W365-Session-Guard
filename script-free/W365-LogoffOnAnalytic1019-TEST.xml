@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>W365 thin client VIABILITY TEST ONLY (SCRIPT-FREE, Oct 13 2026): can Task Scheduler subscribe to an Analytic channel at all? Trigger is UNFILTERED Event 1019 on Microsoft-Windows-TerminalServices-RDPClient/Analytic, action is rwinsta.exe console as LOCAL SYSTEM (same as the proven tasks). Built after Bruce found Event 1019 at wake on Oct 13 with ErrorCode=0x35b7, DisconnectReason=0x1208 and ErrorString stating the PC went to sleep. Gate 1 is import: Analytic/Debug channels are documented as unsupported for event subscriptions, so Task Scheduler may reject this at import - that rejection IS a result. Gate 2, only if it imports and fires: selectivity needs the EventData field names from the 1019 Details/XML view, which are not yet known, so do NOT deploy this unfiltered version beyond the pilot box - any 1019 error would log the user off.</Description>
+    <URI>\W365-LogoffOnAnalytic1019-TEST</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <EventTrigger>
+      <Enabled>true</Enabled>
+      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;&lt;Select Path="Microsoft-Windows-TerminalServices-RDPClient/Analytic"&gt;*[System[(EventID=1019)]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
+    </EventTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT2M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Windows\System32\rwinsta.exe</Command>
+      <Arguments>console</Arguments>
+    </Exec>
+  </Actions>
+</Task>
