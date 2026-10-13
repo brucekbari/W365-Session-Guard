@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>W365 thin client YOLO v2 (SCRIPT-FREE, Oct 13 2026): ONE task, FOUR event triggers, all firing rwinsta.exe console as LOCAL SYSTEM (S-1-5-18). Triggers: Power-Troubleshooter 1 (wake), Kernel-Power 107 (Sx resume), Kernel-Power 507 exit with Reason Lid(15)/Power Button(1)/Battery Drain Budget Exceeded(55) and NO duration floor, ClientActiveXCore 1026 (RDP disconnected, Operational log). HISTORY: the original six-trigger build added two Analytic-channel triggers (1019 unfiltered; 1003 filtered to disconnect-reason Value 4616) and a BUILTIN Users InteractiveToken principal; Task Scheduler rejected registration with 'The request is not supported' on Oct 13, 2026 - consistent with event subscriptions being unsupported on Analytic channels. The Analytic triggers were removed and the principal reverted to LOCAL SYSTEM at Bruce's direction. Separately, the power-button pilot exposed a UI-introduced idle condition (StopOnIdleEnd) that terminated instances at wake with result 0x41306 ('terminated by the user'); the XML now pins IdleSettings StopOnIdleEnd=false so the imported state is correct even after UI edits. Probe: import W365-LogoffOnAnalytic1019-TEST.xml standalone; if it throws the same error, the Analytic channel is convicted.</Description>
+    <Description>W365 thin client YOLO v2 (SCRIPT-FREE, Oct 13 2026): ONE task, FOUR event triggers, all firing rwinsta.exe console as LOCAL SYSTEM (S-1-5-18). Triggers: Power-Troubleshooter 1 (wake), Kernel-Power 107 (Sx resume), Kernel-Power 507 exit with Reason Lid(15)/Power Button(1)/Battery Drain Budget Exceeded(55) and NO duration floor, ClientActiveXCore 1026 (RDP disconnected, Operational log). HISTORY: the original six-trigger build added two Analytic-channel triggers (1019 unfiltered; 1003 filtered to disconnect-reason Value 4616) and a BUILTIN Users InteractiveToken principal; Task Scheduler rejected registration with 'The request is not supported' on Oct 13, 2026 - consistent with event subscriptions being unsupported on Analytic channels. The Analytic triggers were removed and the principal reverted to LOCAL SYSTEM at Bruce's direction. Separately, the power-button pilot exposed a UI-introduced idle condition (StopOnIdleEnd) that terminated instances at wake with result 0x41306 ('terminated by the user'); the pin is serialized inside Settings/IdleSettings exactly as a native Windows export does (an earlier build wrongly placed it in a top-level Conditions element - no such element exists in the task XML schema - and broke import; corrected against Bruce's native export, Oct 13 2026). Probe: import W365-LogoffOnAnalytic1019-TEST.xml standalone; if it throws the same error, the Analytic channel is convicted.</Description>
     <URI>\W365-Logoff-YOLO-AllTriggers</URI>
   </RegistrationInfo>
   <Triggers>
@@ -39,18 +39,16 @@
     <AllowHardTerminate>true</AllowHardTerminate>
     <StartWhenAvailable>true</StartWhenAvailable>
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
     <AllowStartOnDemand>true</AllowStartOnDemand>
     <Enabled>true</Enabled>
     <Hidden>false</Hidden>
     <ExecutionTimeLimit>PT2M</ExecutionTimeLimit>
     <Priority>7</Priority>
   </Settings>
-  <Conditions>
-    <IdleSettings>
-      <StopOnIdleEnd>false</StopOnIdleEnd>
-      <RestartOnIdle>false</RestartOnIdle>
-    </IdleSettings>
-  </Conditions>
   <Actions Context="Author">
     <Exec>
       <Command>C:\Windows\System32\rwinsta.exe</Command>
